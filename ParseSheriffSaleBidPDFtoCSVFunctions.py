@@ -3,6 +3,15 @@ import re
 
 docNumPattern = re.compile(r'\w{2}-\w{2}-\w{6}')
 endOfPagePattern = re.compile('^Report.*')
+possibleSaleTypesHas2ndLine = 0
+possibleSaleTypesWith2ndLine = ['Sci Fa sur Tax ',
+                     'Mortgage ',
+                     'Other Real ']
+possibleSaleTypes2ndLine = ['Lien',
+                            'Foreclosure',
+                            'Estate']
+possibleSaleTypesOnly1Line = ['Municipal Lien']
+
 
 def getPDFContent(path):
     content = ""
@@ -30,8 +39,10 @@ def parsePageContent(pageContent):
     docketContentList = []
     docketDictionary = {}
     docketListCount = 0
-    docketPlaintiffName = []
+    tempContentStr = ""
+    tempContentCounter = 0
     for col in chunks:
+        # find the docket #
         if docNumPattern.match(col):
             # Clear any content that isn't associated with a docket
             # Also set the
@@ -46,7 +57,26 @@ def parsePageContent(pageContent):
                 docketDictionary.update({docketNum : docketContentList})
                 docketContentList = []
                 docketNum = col
+
+
             print("found a Docket #" + docketNum)
+        elif col in possibleSaleTypesOnly1Line:
+            docketContentList.append(tempContentStr)
+            docketContentList.append(col)
+            docketListCount += 1
+        elif col in possibleSaleTypesWith2ndLine:
+            docketContentList.append(tempContentStr)
+            tempContentStr = col
+        elif col in possibleSaleTypes2ndLine:
+            tempContentStr = tempContentStr + col
+            docketContentList.append(tempContentStr)
+            tempContentStr = ''
+            docketListCount += 1
+        elif docketListCount == 1:
+            #Add the col to the temp string rather than the docketContentList
+            tempContentStr = tempContentStr + col
+
+        # found the last item on the page
         elif endOfPagePattern.match(col):
             # Update the dictionary
             docketDictionary.update({docketNum : docketContentList})
@@ -55,6 +85,7 @@ def parsePageContent(pageContent):
             docketContentList = []
             docketDictionary = {}
             #print("hit the end of the page " + col)
+            docketListCount = 0
             break
         else:
             docketContentList.append(col)
