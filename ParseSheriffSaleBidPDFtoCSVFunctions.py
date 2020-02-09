@@ -12,21 +12,27 @@ possibleSaleTypes2ndLine = ['Lien',
                             'Estate']
 possibleSaleTypesOnly1Line = ['Municipal Lien']
 
-
+# Function returns a list of dockets and contents organized into another list
 def getPDFContent(path):
-    content = ""
     file = open(path, "rb")
     fileReader = pdf.PdfFileReader(file)
     numPages = fileReader.getNumPages()
-    print(numPages)
+
+    # Master List
+    contentList = []
+
+    # Iterate through the pages of the PDF
     for i in range(0, numPages):
         tContent = fileReader.getPage(i).extractText()
-        tContent = parsePageContent(tContent)
+        tContentList = []
+        # Parse a single page for all the dockets
+        tContentList = parsePageContent(tContent)
+        # Since the contents are nested lists, pull them out and put them into a the master list
+        for col in tContentList:
+            contentList.append(col)
 
-        content += tContent + "\n"
-
-    #content = " ".join(content.replace(u"\xa0", " ").strip().split())
-    return content
+    # Return the final Master list
+    return contentList
 
 def parsePageContent(pageContent):
     content = ""
@@ -34,13 +40,13 @@ def parsePageContent(pageContent):
     print(lineCount)
     print("\n================ Content ===============\n")
     chunks = pageContent.split('\n')
-    print(chunks)
+    #print(chunks)
     docketNum = ""
     docketContentList = []
-    docketDictionary = {}
+    docketInitialContents = []
     docketListCount = 0
     tempContentStr = ""
-    tempContentCounter = 0
+
     for col in chunks:
         # find the docket #
         if docNumPattern.match(col):
@@ -48,18 +54,25 @@ def parsePageContent(pageContent):
             # Also set the
             if docketNum == "":
                 docketContentList = []
+                tempContentStr = ""
                 docketNum = col
-                docketListCount += 1
+                docketContentList.append(col)
+                docketListCount = 0
 
-            # If another docket # is found and it's not empty, then the system must have found all the elements of the docket
+            # If another docket # is found and there is another docket already, then the system must have found all the elements of the previous docket
             # Update the docketDictionary with all the new docket information.
             else:
-                docketDictionary.update({docketNum : docketContentList})
+                #add the previous docket to the docketDictionary
+                #docketDictionary.update({docketNum : docketContentList})
+                docketInitialContents.append(docketContentList)
                 docketContentList = []
                 docketNum = col
+                docketContentList.append(col)
+                #resets the docketListCount back to 0
+                docketListCount = 0
 
+            print("Found a Docket #" + docketNum)
 
-            print("found a Docket #" + docketNum)
         elif col in possibleSaleTypesOnly1Line:
             docketContentList.append(tempContentStr)
             docketContentList.append(col)
@@ -75,28 +88,30 @@ def parsePageContent(pageContent):
         elif docketListCount == 1:
             #Add the col to the temp string rather than the docketContentList
             tempContentStr = tempContentStr + col
+            # print(docketListCount)
 
         # found the last item on the page
         elif endOfPagePattern.match(col):
             # Update the dictionary
-            docketDictionary.update({docketNum : docketContentList})
+            #docketDictionary.update({docketNum : docketContentList})
+            docketInitialContents.append(docketContentList)
             # Hit the last item on the page so wipe all existing content
             docketNum = ""
             docketContentList = []
             docketDictionary = {}
+            tempContentStr = ""
             #print("hit the end of the page " + col)
             docketListCount = 0
             break
         else:
             docketContentList.append(col)
+            docketListCount += 1
             #print("ADDING to the Content List ")
-            print(docketContentList)
+            #print(docketContentList)
 
-    print(docketDictionary)
+    #print(docketInitialContents)
 
-    content = pageContent
-
-    return content
+    return docketInitialContents
 
 
 # Function checks if the string
