@@ -149,14 +149,22 @@ def parsePageContent(pageContent):
             #tCommentTrigger = tCommentTrigger + " " + col
             #docketContentList.append(tCommentTrigger)
             #tCommentTrigger = ""
+            print(chunks[-1])
+            docketContentList.append(col)
         elif tCommentTrigger:
             #tCommentTrigger = tCommentTrigger + " " + col
+            print("Something triggered")
+            docketContentList.append(col)
         elif col == "Comments:" and col == chunks[-1]:
             #tCommentTrigger = col
             #docketContentList.append(tCommentTrigger)
             #tCommentTrigger = ""
+            print("crap")
+            docketContentList.append(col)
         elif col == "Comments:":
-            tCommentTrigger = col
+            #tCommentTrigger = col
+            print("snapper")
+            docketContentList.append(col)
         else:
             docketContentList.append(col)
             docketListCount += 1
