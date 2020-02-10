@@ -1,7 +1,11 @@
 import PyPDF4 as pdf
+import geocoder
+import urllib
+import json
 import re
 
 docNumPattern = re.compile(r'\w{2}-\w{2}-\w{6}')
+auctionNumPattern = re.compile(r'\d{3}\w{3}\d{2}')
 endOfPagePattern = re.compile('^Report.*')
 possibleSaleTypesHas2ndLine = 0
 possibleSaleTypesWith2ndLine = ['Sci Fa sur Tax ',
@@ -27,6 +31,9 @@ ignoreList = ['Docket #',
              'OK',
              'AuctionNo',
              'Defendant Name']
+
+saleTypesWODatesList = ['ACTIVE',
+                 'STAYED']
 
 # Function returns a list of dockets and contents organized into another list
 def getPDFContent(path):
@@ -73,6 +80,7 @@ def parsePageContent(pageContent):
 
     for col in chunks:
         # find the docket #
+        print(docketListCount)
         if docNumPattern.match(col):
             # Clear any content that isn't associated with a docket
             # Also set the
@@ -105,18 +113,21 @@ def parsePageContent(pageContent):
             docketListCount += 1
         elif col in possibleSaleTypesWith2ndLine:
             docketContentList.append(tempContentStr)
+            docketListCount += 1
             tempContentStr = col
-            print(tempContentStr)
-            print(docketListCount)
+            #print(tempContentStr)
+            #print(docketListCount)
         elif col in possibleSaleTypes2ndLine:
             tempContentStr = tempContentStr + col
             docketContentList.append(tempContentStr)
             tempContentStr = ''
             docketListCount += 1
+            print("[[[[[ salmon ]]]]]")
         elif docketListCount == 1:
             #Add the col to the temp string rather than the docketContentList
             tempContentStr = tempContentStr + col
             # print(docketListCount)
+            print("[[[[[ tuna ]]]]]")
 
         # found the last item on the page
         elif endOfPagePattern.match(col):
@@ -134,16 +145,20 @@ def parsePageContent(pageContent):
         elif col in ignoreList:
             # Do nothing with the info
             print("Ignoring "+col)
-        elif tPostponeTrigger:
-            docketContentList.append(tPostponeTrigger+" "+col)
-            tPostponeTrigger = ""
- #           print("[[[[[[[temp]]]]]]]")
- #           print(tempContentStr)
- #           docketContentList.append(tempContentStr+" "+col)
- #           tempContentStr = ""
- #           docketListCount += 1
-        elif col == "POSTPONED":
-            tPostponeTrigger = col
+
+        elif col in saleTypesWODatesList:
+            docketContentList.append(col)
+            docketContentList.append(" ")
+            docketListCount += 2
+
+        # Auction Date Match
+        elif auctionNumPattern.match(col):
+            print("[[[[[ Auction ]]]]]")
+            for i in range(docketListCount,11):
+                docketContentList.append("O")
+                docketListCount +=1
+            docketContentList.append(col)
+            docketListCount += 1
 
         elif tCommentTrigger and col == chunks[-1]:
             #tCommentTrigger = tCommentTrigger + " " + col
@@ -164,6 +179,10 @@ def parsePageContent(pageContent):
         elif col == "Comments:":
             #tCommentTrigger = col
             print("snapper")
+            docketContentList.append(col)
+        elif docketListCount == 14:
+            print(col)
+
             docketContentList.append(col)
         else:
             docketContentList.append(col)
@@ -193,3 +212,55 @@ def run(string):
 
     else:
         print("String is not accepted.")
+
+featurePropertiesExample = {'address': '318 Kilbuck St, Sewickley, Pennsylvania, 15143',
+                  'bbox': [-80.1305425, 40.521311000000004, -80.1285425, 40.523311],
+                  'confidence': 9,
+                  'lat': 40.52233455314792,
+                  'lng': -80.13029678746658,
+                  'ok': True,
+                  'quality': 'PointAddress',
+                  'raw': {'name': '318 Kilbuck St, Sewickley, Pennsylvania, 15143',
+                          'extent': {'xmin': -80.1305425,
+                                     'ymin': 40.521311000000004,
+                                     'xmax': -80.1285425,
+                                     'ymax': 40.523311},
+                          'feature': {'geometry': {'x': -80.13029678746658, 'y': 40.52233455314792},
+                                      'attributes': {'Score': 100, 'Addr_Type': 'PointAddress'}}},
+                  'score': 100,
+                  'status': 'OK'}
+
+def geoCodeCoord(address):
+    # initialize your variable to None
+    lat_lng_coords = None
+    # loop until you get the coordinates
+    while (lat_lng_coords is None):
+        # ArcGIS gives a Dictionary response
+        g = geocoder.arcgis(address)
+        #print(g.geojson.keys())
+        featureAddress = g.geojson['features'][0]['properties']['address']
+        featureLat = g.geojson['features'][0]['properties']['lat']
+        featureLng = g.geojson['features'][0]['properties']['lng']
+        print(featureAddress)
+        lat_lng_coords = [featureLat, featureLng, featureAddress]
+    latitude = lat_lng_coords[0]
+    longitude = lat_lng_coords[1]
+    addressUsed = lat_lng_coords[2]
+    return latitude, longitude, addressUsed
+
+def addressParseGeoCode(addresses):
+    content = []
+    tAddressList = []
+    for col in addresses:
+        print('Working on addresses...')
+        #addyURL = urllib.parse.quote_plus(col)
+        addyURL = col
+        print(addyURL)
+        latitude, longitude, addressUsed = geoCodeCoord(addyURL)
+        tAddressList.append(col)
+        print(latitude)
+        print(longitude)
+        #tAddressList.append(latitude + ", " + longitude)
+        content.append(tAddressList)
+        tAddressList =[]
+    return content
