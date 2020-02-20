@@ -3,6 +3,7 @@ import geocoder
 import urllib
 import json
 import re
+from urllib.parse import urlparse, parse_qs
 
 docNumPattern = re.compile(r'\w{2}-\w{2}-\w{6}')
 auctionNumPattern = re.compile(r'\d{3}\w{3}\d{2}')
@@ -264,3 +265,74 @@ def addressParseGeoCode(addresses):
         content.append(tAddressList)
         tAddressList =[]
     return content
+
+def urlFoundInQuery(urllink, queryid):
+    urlparsed = urlparse(urllink)
+    urlquery = parse_qs(urlparsed.query)
+    if queryid in urlquery:
+        return True
+    else:
+        return False
+
+from bs4 import BeautifulSoup
+import requests as req
+import pyap as addressfinder
+
+def parseForAddresses(urllinks):
+    finalList = []
+    for link in urllinks:
+        # Parse the URL
+        urlparsed = urlparse(link)
+        # Open, get content, and Close URL
+        urlcontent = req.get(link)
+        htmlcontent = urlcontent.text
+        urlcontent.close()
+        soup = BeautifulSoup(htmlcontent, 'html.parser')
+        #souptext = soup.select('.classified_item_description')
+        souptext = soup.find(attrs={"class": "classified_item_description"})
+        print(souptext)
+        chunks = str(souptext).split("\n")
+        chunkscounter = 0
+        contentList = []
+        addressesList = []
+        for line in chunks:
+            print(chunkscounter)
+            line = re.sub(r'<.*?>', '', line, flags=re.DOTALL)
+            if chunkscounter == 5:
+            #elif chunkscounter == 5:
+                contentList[4] = contentList[4] + line.strip()
+                chunkscounter += 1
+            # Put the Docket number in the first column
+            elif chunkscounter == 1:
+                contentList.insert(0,line.strip())
+                chunkscounter += 1
+            # Put the amount owed in the 2nd column
+            elif chunkscounter == 2:
+                contentList.insert(1,line.strip())
+                chunkscounter += 1
+            elif chunkscounter == 6:
+                addresses = addressfinder.parse(line, country='US')
+                print(addresses)
+                #addresses = addressfinder.parse(addresses[0], country='US')
+                addressesList.append(addresses)
+                contentList.append(line.strip())
+                chunkscounter += 1
+            elif chunkscounter == 7:
+                addresses = addressfinder.parse(line, country='US')
+                # addresses = addressfinder.parse(addresses[0], country='US')
+                addressesList.append(addresses)
+                contentList.append(line.strip())
+                chunkscounter += 1
+                contentList.insert(2, addressesList)
+                addressesList = []
+            # Get rid of empty lines
+            elif not line:
+            #elif re.match('^<\w{1,25}>|^</\w{1,25}>', line):
+                chunkscounter += 1
+            elif 'Published on' in line:
+                chunkscounter += 1
+            else:
+                contentList.append(line.strip())
+                chunkscounter += 1
+        finalList.append(contentList)
+    return finalList
