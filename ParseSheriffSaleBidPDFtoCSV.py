@@ -28,7 +28,7 @@ csvHeader = ['Docket #',
              'AuctionNo',
              'Defendant Name']
 
-#content = fn.getPDFContent('./data/bid_list.pdf')
+content = fn.getPDFContent('./data/bid_list.pdf')
 # print the content
 #print(content)
 
@@ -90,7 +90,7 @@ addressList = ["810 MAPLE AVE & VACANT LAND, , NORTH VERSAILLES, PA 15137",
                "318 KILBUCK ST, , SEWICKLEY, PA 15143",
                "3330  & 3334  RAINBOW RUN RD, , MONONGAHELA, PA 15063"]
 
-#contentAddresses = fn.addressParseGeoCode(addressList)
-#print(contentAddresses)
+contentAddresses = fn.addressParseGeoCode(addressList)
+print(contentAddresses)
 
 import urllib

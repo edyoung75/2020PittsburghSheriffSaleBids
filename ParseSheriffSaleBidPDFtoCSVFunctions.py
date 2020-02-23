@@ -242,7 +242,7 @@ def geoCodeCoord(address):
         featureAddress = g.geojson['features'][0]['properties']['address']
         featureLat = g.geojson['features'][0]['properties']['lat']
         featureLng = g.geojson['features'][0]['properties']['lng']
-        print(featureAddress)
+        #print(featureAddress)
         lat_lng_coords = [featureLat, featureLng, featureAddress]
     latitude = lat_lng_coords[0]
     longitude = lat_lng_coords[1]
@@ -253,14 +253,21 @@ def addressParseGeoCode(addresses):
     content = []
     tAddressList = []
     for col in addresses:
-        print('Working on addresses...')
+        #print('Working on addresses...')
         #addyURL = urllib.parse.quote_plus(col)
         addyURL = col
-        print(addyURL)
-        latitude, longitude, addressUsed = geoCodeCoord(addyURL)
+        #print(col)
+        #print(addyURL)
+        latitude, longitude, addressUsed = 0, 0, ''
+        # Handle empty lines. if the col is not empty, then get the coordinates.
+        if col:
+            latitude, longitude, addressUsed = geoCodeCoord(addyURL)
         tAddressList.append(col)
-        print(latitude)
-        print(longitude)
+        tAddressList.append(addressUsed)
+        tAddressList.append(latitude)
+        tAddressList.append(longitude)
+        #print(latitude)
+        #print(longitude)
         #tAddressList.append(latitude + ", " + longitude)
         content.append(tAddressList)
         tAddressList =[]
@@ -290,17 +297,28 @@ def parseForAddresses(urllinks):
         soup = BeautifulSoup(htmlcontent, 'html.parser')
         #souptext = soup.select('.classified_item_description')
         souptext = soup.find(attrs={"class": "classified_item_description"})
-        print(souptext)
+        #print(souptext)
         chunks = str(souptext).split("\n")
         chunkscounter = 0
         contentList = []
         addressesList = []
+        stripFromLines = [re.compile('[%s]'%re.escape("[]")),
+                          re.compile('and numbered as '),
+                          re.compile('and being known as '),
+                          re.compile('and known '),
+                          re.compile('<.*?>'),
+                          re.compile('\- ')
+                          ]
+
         for line in chunks:
-            print(chunkscounter)
-            line = re.sub(r'<.*?>', '', line, flags=re.DOTALL)
+            # Remove the extra "junK" from the line before processing.
+            for strip in stripFromLines:
+                line = re.sub(strip, '', line)
+            #line = re.sub(r'<.*?>', '', line, flags=re.DOTALL)
             if chunkscounter == 5:
             #elif chunkscounter == 5:
-                contentList[4] = contentList[4] + line.strip()
+                # Removing a dash at the end of a line and then append the the following line to it. ie. Allegh-eny vs Allegheny
+                contentList[4] = re.sub(r'[\-]$', '', contentList[4]) + line.strip()
                 chunkscounter += 1
             # Put the Docket number in the first column
             elif chunkscounter == 1:
@@ -312,22 +330,28 @@ def parseForAddresses(urllinks):
                 chunkscounter += 1
             elif chunkscounter == 6:
                 addresses = addressfinder.parse(line, country='US')
-                print(addresses)
-                #addresses = addressfinder.parse(addresses[0], country='US')
-                addressesList.append(addresses)
+                for strip in stripFromLines:
+                    addresses = re.sub(strip, '', str(addresses))
+                addressesList.append(str(addresses))
                 contentList.append(line.strip())
                 chunkscounter += 1
             elif chunkscounter == 7:
                 addresses = addressfinder.parse(line, country='US')
-                # addresses = addressfinder.parse(addresses[0], country='US')
+                for strip in stripFromLines:
+                    addresses = re.sub(strip, '', str(addresses))
+                #addressesList.append(str(tuple(addresses)))
                 addressesList.append(addresses)
-                contentList.append(line.strip())
+                if not line:
+                    pass
+                else:
+                    contentList.append(line.strip())
                 chunkscounter += 1
+                addressesList = addressParseGeoCode(addressesList)
                 contentList.insert(2, addressesList)
                 addressesList = []
-            # Get rid of empty lines
+                # Get rid of empty lines
             elif not line:
-            #elif re.match('^<\w{1,25}>|^</\w{1,25}>', line):
+                # elif re.match('^<\w{1,25}>|^</\w{1,25}>', line):
                 chunkscounter += 1
             elif 'Published on' in line:
                 chunkscounter += 1
